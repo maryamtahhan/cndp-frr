@@ -68,8 +68,8 @@ static __always_inline int parse_iphdr(struct hdr_cursor *nh,
     return iph->protocol;
 }
 
-SEC("xdp_packet_parser")
-int  xdp_parser_func(struct xdp_md *ctx)
+SEC("xdp_packet_filter")
+int  xdp_filter_func(struct xdp_md *ctx)
 {
     void *data_end = (void *)(long)ctx->data_end;
     void *data = (void *)(long)ctx->data;
