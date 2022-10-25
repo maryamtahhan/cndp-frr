@@ -10,12 +10,13 @@
 #include <linux/udp.h>
 #include <linux/tcp.h>
 
-struct bpf_map_def SEC("maps") xsks_map = {
-    .type = BPF_MAP_TYPE_XSKMAP,
-    .key_size = sizeof(int),
-    .value_size = sizeof(int),
-    .max_entries = 64,  /* Assume netdev has no more than 64 queues */
-};
+struct {
+    __uint(type, BPF_MAP_TYPE_XSKMAP);
+    __type(key, sizeof(int));
+    __type(value, sizeof(int));
+    __uint(max_entries, 64);
+    __uint(pinning, LIBBPF_PIN_BY_NAME);
+} xsks_map SEC(".maps");
 
 /* Header cursor to keep track of current parsing position */
 struct hdr_cursor {
@@ -68,7 +69,7 @@ static __always_inline int parse_iphdr(struct hdr_cursor *nh,
     return iph->protocol;
 }
 
-SEC("xdp_packet_filter")
+SEC("xdp_filter")
 int  xdp_filter_func(struct xdp_md *ctx)
 {
     void *data_end = (void *)(long)ctx->data_end;

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright (c) 2020-2022 Intel Corporation.
+# Copyright (c) 2022 Red Hat, Inc.
 
 FROM quay.io/mtahhan/cndp-fedora-dev
 
@@ -8,9 +8,16 @@ RUN dnf -y upgrade && dnf -y install git autoconf automake libtool make \
   readline-devel texinfo net-snmp-devel groff pkgconfig json-c-devel \
   pam-devel python3-pytest bison flex c-ares-devel python3-devel \
   python3-sphinx perl-core patch libcap-devel \
-  elfutils-libelf-devel libunwind-devel cmake pcre2-devel \
+  elfutils-libelf-devel libunwind-devel pcre2-devel \
   elfutils-libelf-devel libpcap-devel perf \
-  clang llvm bpftool tcpdump
+  clang llvm bpftool tcpdump iputils net-tools iperf bmon iproute
+
+# Setup container to build CNDP applications
+RUN dnf -y upgrade && dnf -y install @development-tools \
+    libbsd-devel json-c-devel libnl3-devel libnl3-cli \
+    numactl-libs libbpf-devel libbpf meson ninja-build \
+    gcc-c++ libpcap libpcap-devel golang clang llvm m4 cmake \
+	pcre2 pcre2-devel dh-autoreconf python3
 
 # Build and install libyang from source
 WORKDIR /
@@ -31,6 +38,7 @@ WORKDIR /
 
 RUN git clone https://github.com/frrouting/frr.git frr
 WORKDIR /frr
+RUN git checkout frr-8.3.1
 RUN ./bootstrap.sh
 RUN ./configure \
     --prefix=/usr \
@@ -72,14 +80,21 @@ COPY my-filter-udp-to-xdp /my-filter-udp-to-xdp
 WORKDIR /my-filter-udp-to-xdp
 RUN make -j
 
+WORKDIR /
+RUN rm -rf /cndp
+RUN git clone https://github.com/CloudNativeDataPlane/cndp.git
 WORKDIR /cndp
-RUN git pull
-RUN git checkout fede861421e1790427f4b3ce4100ddb079e210d5
-COPY docker/0001-load-custom-bpf-program-shouldn-t-do-on-a-per-port-b.patch /cndp
-RUN git apply 0001-load-custom-bpf-program-shouldn-t-do-on-a-per-port-b.patch
+RUN git checkout 79f78dccf9a7c36bb3c2cfbd0016d751e8061917
+COPY docker/0001-Load-custom-bpf-program.patch /cndp
+COPY docker/daemons /etc/frr/daemons.conf
+RUN git apply 0001-Load-custom-bpf-program.patch
 RUN make clean
 RUN make -j
 COPY docker/cnetfwd-graph.jsonc /cndp/builddir/examples/cnet-graph
 WORKDIR /cndp/builddir/examples/cnet-graph
-RUN cp /my-filter-udp-to-xdp/my_xdp_prog_kern.o .
+
+WORKDIR /
+COPY my-filter-udp-to-xdp /my-filter-udp-to-xdp
+WORKDIR /my-filter-udp-to-xdp
+RUN make -j
 WORKDIR /
