@@ -88,11 +88,10 @@ int  xdp_filter_func(struct xdp_md *ctx)
         if (ip_type == IPPROTO_UDP) {
             int index = ctx->rx_queue_index;
 
-            /* A set entry here means that the correspnding queue_id
+            /* A set entry here means that the corresponding queue_id
             * has an active AF_XDP socket bound to it. */
             if (bpf_map_lookup_elem(&xsks_map, &index))
                 return bpf_redirect_map(&xsks_map, index, 0);
-
             }
     }
 
