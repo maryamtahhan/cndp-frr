@@ -8,16 +8,13 @@ RUN dnf -y upgrade && dnf -y install git autoconf automake libtool make \
   readline-devel texinfo net-snmp-devel groff pkgconfig json-c-devel \
   pam-devel python3-pytest bison flex c-ares-devel python3-devel \
   python3-sphinx perl-core patch libcap-devel \
-  elfutils-libelf-devel libunwind-devel pcre2-devel \
-  elfutils-libelf-devel libpcap-devel perf \
-  clang llvm bpftool tcpdump iputils net-tools iperf bmon iproute
-
-# Setup container to build CNDP applications
-RUN dnf -y upgrade && dnf -y install @development-tools \
-    libbsd-devel json-c-devel libnl3-devel libnl3-cli \
-    numactl-libs libbpf-devel libbpf meson ninja-build \
-    gcc-c++ libpcap libpcap-devel golang clang llvm m4 cmake \
-	pcre2 pcre2-devel dh-autoreconf python3
+  libunwind-devel pcre2-devel \
+  elfutils-libelf-devel perf \
+  bpftool tcpdump iputils net-tools iperf bmon iproute \
+  @development-tools libbsd-devel libnl3-devel libnl3-cli \
+  numactl-libs libbpf-devel libbpf meson ninja-build \
+  gcc-c++ libpcap golang clang llvm m4 cmake \
+  pcre2 pcre2-devel dh-autoreconf python3
 
 # Build and install libyang from source
 WORKDIR /
@@ -70,10 +67,15 @@ RUN install -m 640 -o frr -g frr tools/etc/frr/frr.conf /etc/frr/frr.conf
 RUN install -m 640 -o frr -g frr tools/etc/frr/daemons.conf /etc/frr/daemons.conf
 RUN install -m 640 -o frr -g frr tools/etc/frr/daemons /etc/frr/daemons
 
-COPY docker/logging.sh /
-COPY docker/startup.sh /
+COPY docker/frr-scripts/logging.sh /
+COPY docker/frr-scripts/startup.sh /
+RUN chmod +x /startup.sh
 RUN install -p -m 644 tools/frr.service /usr/lib/systemd/system/frr.service
-COPY docker/90-routing-sysctl.conf /etc/sysctl.d/90-routing-sysctl.conf
+
+COPY docker/frr-cfgs/frr1.cfg /
+COPY docker/frr-cfgs/frr2.cfg /
+COPY docker/frr-cfgs/daemons /etc/frr/daemons.conf
+COPY docker/frr-cfgs/90-routing-sysctl.conf /etc/sysctl.d/90-routing-sysctl.conf
 
 WORKDIR /
 COPY my-filter-udp-to-xdp /my-filter-udp-to-xdp
@@ -86,7 +88,6 @@ RUN git clone https://github.com/CloudNativeDataPlane/cndp.git
 WORKDIR /cndp
 RUN git checkout 79f78dccf9a7c36bb3c2cfbd0016d751e8061917
 COPY docker/0001-Load-custom-bpf-program.patch /cndp
-COPY docker/daemons /etc/frr/daemons.conf
 RUN git apply 0001-Load-custom-bpf-program.patch
 RUN make clean
 RUN make -j
