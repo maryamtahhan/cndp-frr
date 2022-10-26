@@ -89,7 +89,7 @@
             "region": 0,
             "description": "LAN 0 port",
             "skb_mode": true,
-            "custom_bpf_prog": "/my-filter-udp-to-xdp/my_xdp_prog_kern.o"
+            "custom_bpf_prog": "my_xdp_prog_kern.o"
         },
         "eth1:0": {
             "pmd": "net_af_xdp",
@@ -98,7 +98,7 @@
             "region": 1,
             "description": "LAN 1 port",
             "skb_mode": true,
-            "custom_bpf_prog": "/my-filter-udp-to-xdp/my_xdp_prog_kern.o"
+            "custom_bpf_prog": "my_xdp_prog_kern.o"
         }
     },
 
@@ -109,10 +109,10 @@
     // The initial group is for the main thread of the application.
     // The default group is special and is used if a thread if not assigned to a group.
     "lcore-groups": {
-        "initial": [5],
-        "group0": [8],
-        "group1": [9],
-        "default": ["8-9"]
+        "initial": [1],
+        "group0": [2],
+        "group1": [3],
+        "default": ["4"]
     },
 
     // (O) Set of common options application defined.

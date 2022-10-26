@@ -15,3 +15,5 @@ docker exec client2 route add default gw 172.21.0.3
 docker exec client2 route del default gw 172.21.0.1
 docker exec cndp-frr1 cp /frr1.cfg /etc/frr/frr.conf
 docker exec cndp-frr2 cp /frr2.cfg /etc/frr/frr.conf
+docker exec cndp-frr1 cp /my-filter-udp-to-xdp/my_xdp_prog_kern.o /cndp/builddir/examples/cnet-graph/
+docker exec cndp-frr2 cp /my-filter-udp-to-xdp/my_xdp_prog_kern.o /cndp/builddir/examples/cnet-graph/
