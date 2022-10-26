@@ -13,3 +13,5 @@ docker exec client1 route add default gw 172.19.0.3
 docker exec client1 route del default gw 172.19.0.1
 docker exec client2 route add default gw 172.21.0.3
 docker exec client2 route del default gw 172.21.0.1
+docker exec cndp-frr1 cp /frr1.cfg /etc/frr/frr.conf
+docker exec cndp-frr2 cp /frr2.cfg /etc/frr/frr.conf
