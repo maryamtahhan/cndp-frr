@@ -12,10 +12,9 @@
 
 struct {
     __uint(type, BPF_MAP_TYPE_XSKMAP);
-    __type(key, sizeof(int));
-    __type(value, sizeof(int));
+    __type(key, __u32);
+    __type(value, __u32);
     __uint(max_entries, 64);
-    __uint(pinning, LIBBPF_PIN_BY_NAME);
 } xsks_map SEC(".maps");
 
 /* Header cursor to keep track of current parsing position */
@@ -69,8 +68,8 @@ static __always_inline int parse_iphdr(struct hdr_cursor *nh,
     return iph->protocol;
 }
 
-SEC("xdp_filter")
-int  xdp_filter_func(struct xdp_md *ctx)
+SEC("xdp")
+int  xdp_filter_udp(struct xdp_md *ctx)
 {
     void *data_end = (void *)(long)ctx->data_end;
     void *data = (void *)(long)ctx->data;

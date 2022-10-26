@@ -81,7 +81,6 @@ WORKDIR /
 COPY my-filter-udp-to-xdp /my-filter-udp-to-xdp
 WORKDIR /my-filter-udp-to-xdp
 RUN make -j
-RUN cp /my-filter-udp-to-xdp/my_xdp_prog_kern.o /cndp/builddir/examples/cnet-graph/
 
 WORKDIR /
 RUN rm -rf /cndp
@@ -95,8 +94,6 @@ RUN make -j
 COPY docker/cnetfwd-graph.jsonc /cndp/builddir/examples/cnet-graph
 WORKDIR /cndp/builddir/examples/cnet-graph
 
-WORKDIR /
-COPY my-filter-udp-to-xdp /my-filter-udp-to-xdp
-WORKDIR /my-filter-udp-to-xdp
-RUN make -j
+RUN cp /my-filter-udp-to-xdp/my_xdp_prog_kern.o /cndp/builddir/examples/cnet-graph/
+
 WORKDIR /
