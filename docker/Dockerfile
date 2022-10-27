@@ -35,7 +35,7 @@ WORKDIR /
 
 RUN git clone https://github.com/frrouting/frr.git frr
 WORKDIR /frr
-RUN git checkout frr-8.3.1
+RUN git checkout frr-8.2.2
 RUN ./bootstrap.sh
 RUN ./configure \
     --prefix=/usr \
@@ -74,7 +74,7 @@ RUN install -p -m 644 tools/frr.service /usr/lib/systemd/system/frr.service
 
 COPY docker/frr-cfgs/frr1.cfg /
 COPY docker/frr-cfgs/frr2.cfg /
-COPY docker/frr-cfgs/daemons /etc/frr/daemons.conf
+COPY docker/frr-cfgs/daemons /etc/frr/daemons
 COPY docker/frr-cfgs/90-routing-sysctl.conf /etc/sysctl.d/90-routing-sysctl.conf
 
 WORKDIR /

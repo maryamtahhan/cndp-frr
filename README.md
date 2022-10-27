@@ -20,7 +20,7 @@ The flow of traffic is shown in the diagram below:
 
 ## Build cndp-frr image
 
-In the top level directory of this repo run
+If you wish to build the CNDP-FRR docker images locally then in the top level directory of this repo run:
 
 ```bash
 make
@@ -29,19 +29,7 @@ make
 ## Setup docker networks and run docker containers
 
 ```bash
-docker network create net1 --subnet=172.19.0.0/16
-docker network create net2 --subnet=172.20.0.0/16
-docker network create net3 --subnet=172.21.0.0/16
-docker run -u root -dit --name client1 --privileged --net net1 quay.io/mtahhan/cndp-fedora-dev
-docker run -u root -dit --name client2 --privileged --net net3 quay.io/mtahhan/cndp-fedora-dev
-docker run -dit --name cndp-frr1 --privileged --net net1 quay.io/mtahhan/cndp-fedora-frr
-docker run -dit --name cndp-frr2 --privileged --net net2 quay.io/mtahhan/cndp-fedora-frr
-docker network connect net2 cndp-frr1
-docker network connect net3 cndp-frr2
-docker exec client1 route add default gw 172.19.0.3
-docker exec client1 route del default gw 172.19.0.1
-docker exec client2 route add default gw 172.21.0.3
-docker exec client2 route del default gw 172.21.0.1
+# ./scripts/setupdemo.sh
 ```
 
 ## check that clients can't ping one another
@@ -107,35 +95,17 @@ Connect to the cndp-frr1 container
 docker exec -ti cndp-frr1 bash
 ```
 
-Edit /etc/frr/daemons to enable ospf
-
-```bash
-# omitted start
-bgpd=no
-ospfd=yes
-ospf6d=no
-ripd=no
-ripngd=no
-# ... omitted the rest
-```
-
 Start FRR
 
 ``` bash
-sysctl -p /etc/sysctl.d/90-routing-sysctl.conf
-source logging.sh
-source /usr/lib/frr/frrcommon.sh
-daemon_list
-all_start
-all_status
-/usr/lib/frr/watchfrr -d $(daemon_list)
+source startup.sh
 ```
 
 Repeat the steps above on cndp-frr2
 
 ### cndp-frr1 settings
 
-Enable ospf on vtysh.
+Check configuration with vtysh.
 
 ```bash
 # vtysh
@@ -143,19 +113,7 @@ Enable ospf on vtysh.
 Hello, this is FRRouting (version 7.5_git).
 Copyright 1996-2005 Kunihiro Ishiguro, et al.
 
-frr1# conf t
-frr1(config)# interface lo
-frr1(config-if)# ip address 1.1.1.1/32
-frr1(config-if)# exit
-frr1(config)# router ospf
-frr1(config-router)# router-info area 0.0.0.0
-frr1(config-router)# network 172.19.0.0/16 area 0.0.0.0
-frr1(config-router)# network 172.20.0.0/16 area 0.0.0.0
-frr1(config-router)# end
-```
-
-```bash
-frr1# # show run
+frr1# show run
 Building configuration...
 
 Current configuration:
@@ -182,7 +140,7 @@ end
 
 ### cndp-frr2 settings
 
-Set frr2 in the same way
+Setup frr2 in the same way
 
 ```bash
 # vtysh
@@ -190,15 +148,8 @@ Set frr2 in the same way
 Hello, this is FRRouting (version 7.5_git).
 Copyright 1996-2005 Kunihiro Ishiguro, et al.
 
-frr2# conf t
-frr2(config)# interface lo
-frr2(config-if)# ip address 2.2.2.2/32
-frr2(config-if)# exit
-frr2(config)# router ospf
-frr2(config-router)# router-info area 0.0.0.0
-frr2(config-router)# network 172.20.0.0/16 area 0.0.0.0
-frr2(config-router)# network 172.21.0.0/16 area 0.0.0.0
-frr2(config-router)# end
+frr1# show run
+
 ```
 
 With the settings up to this point, if you enter frr1 and check the ip route, 172.21.0.0/16 is added in OSPF.

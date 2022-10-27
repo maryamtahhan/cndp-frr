@@ -17,3 +17,9 @@ docker exec cndp-frr1 cp /frr1.cfg /etc/frr/frr.conf
 docker exec cndp-frr2 cp /frr2.cfg /etc/frr/frr.conf
 docker exec cndp-frr1 cp /my-filter-udp-to-xdp/my_xdp_prog_kern.o /cndp/builddir/examples/cnet-graph/
 docker exec cndp-frr2 cp /my-filter-udp-to-xdp/my_xdp_prog_kern.o /cndp/builddir/examples/cnet-graph/
+
+##########################################################
+#### Fix for FRR not starting up in a VM #################
+### fork(): Cannot allocate memory Failed to start zebra!#
+##########################################################
+echo 1 > /proc/sys/vm/overcommit_memory
