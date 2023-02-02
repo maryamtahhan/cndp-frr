@@ -49,8 +49,7 @@ docker exec -ti cndp-frr1 bash
 Navigate to the cnet-graph directory and run the application
 
 ```bash
-cd /cndp/builddir/examples/cnet-graph/
-./cnet-graph -c cnetfwd-graph.jsonc
+cd /cndp/builddir/examples/cnet-graph/; ./cnet-graph -c cnetfwd-graph.jsonc
 ```
 
 Output should be something like:

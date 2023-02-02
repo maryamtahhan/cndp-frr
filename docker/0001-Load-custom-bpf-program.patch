@@ -1,6 +1,6 @@
-From 34d95a22e3fe9650c5af0d2b731790ec9bf04b6a Mon Sep 17 00:00:00 2001
+From 77356a6845345e376932a2877c5b4b8dafc7d26e Mon Sep 17 00:00:00 2001
 From: Maryam Tahhan <mtahhan@redhat.com>
-Date: Tue, 25 Oct 2022 07:30:38 -0400
+Date: Thu, 2 Feb 2023 10:54:54 -0500
 Subject: [PATCH] Load custom bpf program
 
 Hacky - Shouldn't do on a per port basis - need to just get the xskmap fd
@@ -8,56 +8,34 @@ Hacky implementation for POC... Should get back BPF Tool...
 
 Signed-off-by: Maryam Tahhan <mtahhan@redhat.com>
 ---
- examples/cndpfwd/main.h                 |  14 +--
- examples/cndpfwd/parse-args.c           |   1 +
- examples/cnet-graph/cnetfwd-graph.jsonc |  21 +++--
- examples/cnet-graph/parse-args.c        |   1 +
- examples/l3fwd-graph/parse-args.c       |   1 +
- lib/core/xskdev/xskdev.c                | 111 ++++++++++++++++++++++--
- lib/core/xskdev/xskdev.h                |  10 ++-
- lib/include/cne_lport.h                 |  32 +++----
- lib/usr/app/jcfg/jcfg.h                 |  21 +++--
- lib/usr/app/jcfg/jcfg_lport.c           |   6 +-
- tools/cndp.schema                       |  10 ++-
- 11 files changed, 174 insertions(+), 54 deletions(-)
+ examples/cndpfwd/main.h          |   1 +
+ examples/cndpfwd/parse-args.c    |   1 +
+ examples/cnet-graph/parse-args.c |   1 +
+ lib/core/xskdev/xskdev.c         | 111 ++++++++++++++++++++++++++++---
+ lib/core/xskdev/xskdev.h         |  10 +--
+ lib/include/cne_lport.h          |   2 +
+ lib/usr/app/jcfg/jcfg.h          |  21 +++---
+ lib/usr/app/jcfg/jcfg_lport.c    |   5 +-
+ tools/cndp.schema                |  12 +++-
+ 9 files changed, 140 insertions(+), 24 deletions(-)
 
 diff --git a/examples/cndpfwd/main.h b/examples/cndpfwd/main.h
-index 217309d..23639db 100644
+index 21ad55e..48b142f 100644
 --- a/examples/cndpfwd/main.h
 +++ b/examples/cndpfwd/main.h
-@@ -49,12 +49,13 @@ enum {
-     FWD_ACL_STATS   = (1 << 4), /**< Enable printing ACL stats */
+@@ -114,6 +114,7 @@ struct fwd_port {
+     uint64_t tx_overrun;                 /**< Number of mbufs failing to flush */
+     struct acl_fwd_stats acl_stats;      /**< ACL-related stats */
+     struct acl_fwd_stats prev_acl_stats; /**< previous values for ACL stats */
++    char bpf_prog_path[64];              /**< Custom BPF program path */
  };
  
--#define PKT_API_TAG    "pkt_api"    /**< Packet API json tag */
--#define NO_METRICS_TAG "no-metrics" /**< json tag for no-metrics */
--#define NO_RESTAPI_TAG "no-restapi" /**< json tag for no-restapi */
--#define ENABLE_CLI_TAG "cli"        /**< json tag to enable/disable CLI */
--#define MODE_TAG       "mode"       /**< json tag to set the mode flag */
--#define UDS_PATH_TAG   "uds_path"   /**< json tag for UDS to get xsk map fd */
-+#define PKT_API_TAG         "pkt_api"    /**< Packet API json tag */
-+#define NO_METRICS_TAG      "no-metrics" /**< json tag for no-metrics */
-+#define NO_RESTAPI_TAG      "no-restapi" /**< json tag for no-restapi */
-+#define ENABLE_CLI_TAG      "cli"        /**< json tag to enable/disable CLI */
-+#define MODE_TAG            "mode"       /**< json tag to set the mode flag */
-+#define UDS_PATH_TAG        "uds_path"   /**< json tag for UDS to get xsk map fd */
-+#define CUSTOM_BPF_PROG_TAG "custom-bpf-prog"
- 
- #define MODE_DROP           "drop"           /**< Drop the received packets */
- #define MODE_RX_ONLY        "rx-only"        /**< Alias for MODE_DROP */
-@@ -129,6 +130,7 @@ struct fwd_info {
-     struct app_options opts;   /**< Application options*/
-     pkt_api_t pkt_api;         /**< The packet API mode */
-     uds_info_t *xdp_uds;       /**< UDS to get xsk map fd from */
-+    char bpf_prog_path[64];    /**< Custom BPF program path */
-     int burst;                 /**< Burst Size */
- };
- 
+ struct app_options {
 diff --git a/examples/cndpfwd/parse-args.c b/examples/cndpfwd/parse-args.c
-index ec14932..300d51b 100644
+index ad1d473..4a0f3b4 100644
 --- a/examples/cndpfwd/parse-args.c
 +++ b/examples/cndpfwd/parse-args.c
-@@ -183,6 +183,7 @@ process_callback(jcfg_info_t *j __cne_unused, void *_obj, void *arg, int idx)
+@@ -195,6 +195,7 @@ process_callback(jcfg_info_t *j __cne_unused, void *_obj, void *arg, int idx)
              strlcpy(pcfg.pmd_name, lport->pmd_name, sizeof(pcfg.pmd_name));
              strlcpy(pcfg.ifname, lport->netdev, sizeof(pcfg.ifname));
              strlcpy(pcfg.name, lport->name, sizeof(pcfg.name));
@@ -65,52 +43,6 @@ index ec14932..300d51b 100644
  
              switch (f->pkt_api) {
              case XSKDEV_PKT_API:
-diff --git a/examples/cnet-graph/cnetfwd-graph.jsonc b/examples/cnet-graph/cnetfwd-graph.jsonc
-index e5434f2..0cbe817 100644
---- a/examples/cnet-graph/cnetfwd-graph.jsonc
-+++ b/examples/cnet-graph/cnetfwd-graph.jsonc
-@@ -86,17 +86,21 @@
-     "lports": {
-         "eth0:0": {
-             "pmd": "net_af_xdp",
--            "qid": 36,
-+            "qid": 0,
-             "umem": "umem0",
-             "region": 0,
--            "description": "LAN 0 port"
-+            "description": "LAN 0 port",
-+            "skb_mode": true,
-+            "custom_bpf_prog": "my_xdp_prog_kern.o"
-         },
-         "eth1:0": {
-             "pmd": "net_af_xdp",
--            "qid": 37,
-+            "qid": 0,
-             "umem": "umem0",
-             "region": 1,
--            "description": "LAN 1 port"
-+            "description": "LAN 1 port",
-+            "skb_mode": true,
-+            "custom_bpf_prog": "my_xdp_prog_kern.o"
-         }
-     },
- 
-@@ -107,11 +111,10 @@
-     // The initial group is for the main thread of the application.
-     // The default group is special and is used if a thread if not assigned to a group.
-     "lcore-groups": {
--        "initial": [35],
--        "timer": [34],
--        "group0": [38],
--        "group1": [39],
--        "default": ["38-39"]
-+        "initial": [5],
-+        "group0": [8],
-+        "group1": [9],
-+        "default": ["10"]
-     },
- 
-     // (O) Set of common options application defined.
 diff --git a/examples/cnet-graph/parse-args.c b/examples/cnet-graph/parse-args.c
 index 8a953e3..6dac157 100644
 --- a/examples/cnet-graph/parse-args.c
@@ -123,23 +55,11 @@ index 8a953e3..6dac157 100644
  
              pd->lport = pktdev_port_setup(&pcfg);
              if (pd->lport < 0) {
-diff --git a/examples/l3fwd-graph/parse-args.c b/examples/l3fwd-graph/parse-args.c
-index 67cd84c..05bddd9 100644
---- a/examples/l3fwd-graph/parse-args.c
-+++ b/examples/l3fwd-graph/parse-args.c
-@@ -132,6 +132,7 @@ process_callback(jcfg_info_t *j __cne_unused, void *_obj, void *arg, int idx)
-             strlcpy(pcfg.pmd_name, lport->pmd_name, sizeof(pcfg.pmd_name));
-             strlcpy(pcfg.ifname, lport->netdev, sizeof(pcfg.ifname));
-             strlcpy(pcfg.name, lport->name, sizeof(pcfg.name));
-+            strlcpy(pcfg.bpf_prog_path, lport->bpf_prog_path, sizeof(pcfg.bpf_prog_path));
- 
-             pd->lport = pktdev_port_setup(&pcfg);
-             if (pd->lport < 0) {
 diff --git a/lib/core/xskdev/xskdev.c b/lib/core/xskdev/xskdev.c
-index 4d97e57..e02a044 100644
+index 6bb2ff5..73fc4bd 100644
 --- a/lib/core/xskdev/xskdev.c
 +++ b/lib/core/xskdev/xskdev.c
-@@ -758,6 +758,81 @@ xskdev_buf_set_buf_mgmt_ops(lport_buf_mgmt_t *dst, lport_buf_mgmt_t *src)
+@@ -718,6 +718,81 @@ xskdev_buf_set_buf_mgmt_ops(lport_buf_mgmt_t *dst, lport_buf_mgmt_t *src)
          memcpy(dst, src, sizeof(lport_buf_mgmt_t));
  }
  
@@ -221,7 +141,7 @@ index 4d97e57..e02a044 100644
  xskdev_info_t *
  xskdev_socket_create(struct lport_cfg *c)
  {
-@@ -790,6 +865,26 @@ xskdev_socket_create(struct lport_cfg *c)
+@@ -750,6 +825,26 @@ xskdev_socket_create(struct lport_cfg *c)
              CNE_ERR_GOTO(err, "Failed to receive xsk map fd\n");
      }
  
@@ -248,7 +168,7 @@ index 4d97e57..e02a044 100644
      if (xskdev_use_tx_lock) {
          ret = cne_mutex_create(&xi->tx_lock, 0);
          if (ret)
-@@ -880,13 +975,13 @@ xskdev_socket_create(struct lport_cfg *c)
+@@ -841,13 +936,13 @@ xskdev_socket_create(struct lport_cfg *c)
      xi->skb_mode     = (c->flags & LPORT_SKB_MODE) ? true : false;
      xi->shared_umem  = (c->flags & LPORT_SHARED_UMEM) ? true : false;
  
@@ -269,7 +189,7 @@ index 4d97e57..e02a044 100644
  
      if (xi->busy_polling) {
          xi->busy_budget  = (c->busy_budget) ? c->busy_budget : AF_XDP_DFLT_BUSY_BUDGET;
-@@ -919,7 +1014,7 @@ xskdev_socket_create(struct lport_cfg *c)
+@@ -880,7 +975,7 @@ xskdev_socket_create(struct lport_cfg *c)
      xi->txq.fds.fd     = xsk_socket__fd(xi->rxq.xsk);
      xi->txq.fds.events = POLLIN;
  
@@ -303,44 +223,14 @@ index c6a355f..f8284d8 100644
      lport_buf_mgmt_t buf_mgmt; /**< Buffer management routines structure */
      xskdev_get_mbuf_addr_tx_t
 diff --git a/lib/include/cne_lport.h b/lib/include/cne_lport.h
-index bad7a6e..ac828e7 100644
+index bad7a6e..c7b7388 100644
 --- a/lib/include/cne_lport.h
 +++ b/lib/include/cne_lport.h
-@@ -71,21 +71,22 @@ typedef struct lport_cfg {
-     char name[LPORT_NAME_LEN];     /**< logical port name */
-     char ifname[LPORT_NAME_LEN];   /**< Interface name or netdev name */
-     char pmd_name[LPORT_NAME_LEN]; /**< Name of the PMD i.e. net_af_xdp, net_ring */
--    uint16_t flags;                /**< Flags to configure the AF_XDP interface */
--    uint16_t qid;                  /**< Queue ID */
--    uint32_t bufcnt;               /**< Number of buffers in the pool */
--    uint32_t bufsz;                /**< Size of the buffers in the UMEM space */
--    uint32_t rx_nb_desc;           /**< Number of RX descriptor entries */
--    uint32_t tx_nb_desc;           /**< Number of TX descriptor entries */
--    uint16_t busy_timeout;         /**< 1-65535 or 0 - use default value, value in milliseconds */
--    uint16_t busy_budget;          /**< -1 disabled, 0 use default, >0 budget value */
--    void *addr;                    /**< Start address of the buffers */
--    char *umem_addr;               /**< Address of the allocated UMEM area */
--    char *pmd_opts;                /**< options string from jasonc file */
--    size_t umem_size;              /**< Size of the umem region */
--    pktmbuf_info_t *pi;            /**< pktmbuf_info_t structure pointer */
--    void *xsk_uds;                 /**< The UDS to connect to get xsk FDs */
--    lport_buf_mgmt_t buf_mgmt;     /**< Buffer management functions */
+@@ -86,6 +86,7 @@ typedef struct lport_cfg {
+     pktmbuf_info_t *pi;            /**< pktmbuf_info_t structure pointer */
+     void *xsk_uds;                 /**< The UDS to connect to get xsk FDs */
+     lport_buf_mgmt_t buf_mgmt;     /**< Buffer management functions */
 +    char bpf_prog_path[64];
-+    uint16_t flags;            /**< Flags to configure the AF_XDP interface */
-+    uint16_t qid;              /**< Queue ID */
-+    uint32_t bufcnt;           /**< Number of buffers in the pool */
-+    uint32_t bufsz;            /**< Size of the buffers in the UMEM space */
-+    uint32_t rx_nb_desc;       /**< Number of RX descriptor entries */
-+    uint32_t tx_nb_desc;       /**< Number of TX descriptor entries */
-+    uint16_t busy_timeout;     /**< 1-65535 or 0 - use default value, value in milliseconds */
-+    uint16_t busy_budget;      /**< -1 disabled, 0 use default, >0 budget value */
-+    void *addr;                /**< Start address of the buffers */
-+    char *umem_addr;           /**< Address of the allocated UMEM area */
-+    char *pmd_opts;            /**< options string from jasonc file */
-+    size_t umem_size;          /**< Size of the umem region */
-+    pktmbuf_info_t *pi;        /**< pktmbuf_info_t structure pointer */
-+    void *xsk_uds;             /**< The UDS to connect to get xsk FDs */
-+    lport_buf_mgmt_t buf_mgmt; /**< Buffer management functions */
  } lport_cfg_t;
  
  /**< lport_cfg.flags configuration bits */
@@ -399,10 +289,10 @@ index 52f84ab..9ee34f0 100644
  /**
   * JCFG  lgroup for lcore allocations
 diff --git a/lib/usr/app/jcfg/jcfg_lport.c b/lib/usr/app/jcfg/jcfg_lport.c
-index 1395bc6..4e80fa7 100644
+index 1395bc6..8cc7c67 100644
 --- a/lib/usr/app/jcfg/jcfg_lport.c
 +++ b/lib/usr/app/jcfg/jcfg_lport.c
-@@ -92,9 +92,11 @@ _lport(struct json_object *obj, int flags, struct json_object *parent __cne_unus
+@@ -92,7 +92,10 @@ _lport(struct json_object *obj, int flags, struct json_object *parent __cne_unus
          else if (!strncmp(key, JCFG_LPORT_DESC_NAME, keylen) ||
                   !strncmp(key, JCFG_LPORT_DESCRIPTION_NAME, keylen))
              lport->desc = strdup(json_object_get_string(obj));
@@ -412,38 +302,38 @@ index 1395bc6..4e80fa7 100644
 +            lport->flags |= LPORT_CUST_BPF_PROG;
 +        } else if (!strncmp(key, JCFG_LPORT_BUSY_TIMEOUT_NAME, keylen)) {
              int val;
--
+ 
              val = json_object_get_int(obj);
-             if (val < 0 || val > USHRT_MAX)
-                 CNE_ERR_RET_VAL(JSON_C_VISIT_RETURN_ERROR, "%s: Invalid Range\n",
 diff --git a/tools/cndp.schema b/tools/cndp.schema
-index ec4f00b..bef53a1 100644
+index ec4f00b..3de7242 100644
 --- a/tools/cndp.schema
 +++ b/tools/cndp.schema
-@@ -166,6 +166,10 @@
+@@ -166,7 +166,11 @@
                              "description": "Enable XDP_FLAGS_SKB_MODE to force copy mode",
                              "type": "boolean",
                              "default": false
+-                        }
 +                        },
 +                        "custom_bpf_prog": {
 +                            "description": "The custom bpf program to load",
 +                            "type": "string"
-                         }
++                         }
                      },
                      "patternProperties": {
+                         "^desc(ription){0,1}$": {
 @@ -344,7 +348,11 @@
                          "description": "Enable XDP_FLAGS_SKB_MODE to force copy mode",
                          "type": "boolean",
                          "default": false
 -                    }
-+                    },
-+                    "custom_bpf_prog": {
-+                        "description": "The custom bpf program to load",
-+                        "type": "string"
-+                     }
++                        },
++                        "custom_bpf_prog": {
++                            "description": "The custom bpf program to load",
++                            "type": "string"
++                         }
                  },
                  "patternProperties": {
                      "^desc(ription){0,1}$": {
 -- 
-2.35.3
+2.39.1
 

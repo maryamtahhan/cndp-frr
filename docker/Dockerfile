@@ -83,10 +83,10 @@ WORKDIR /my-filter-udp-to-xdp
 RUN make -j
 
 WORKDIR /
-RUN rm -rf /cndp
+RUN rm -rf cndp
 RUN git clone https://github.com/CloudNativeDataPlane/cndp.git
 WORKDIR /cndp
-RUN git checkout 79f78dccf9a7c36bb3c2cfbd0016d751e8061917
+RUN git checkout db29ec8134bcbfedecee8d4c9066aeb0a2e94934
 COPY docker/0001-Load-custom-bpf-program.patch /cndp
 RUN git apply 0001-Load-custom-bpf-program.patch
 RUN make clean

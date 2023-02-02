@@ -111,11 +111,11 @@
     // The initial group is for the main thread of the application.
     // The default group is special and is used if a thread if not assigned to a group.
     "lcore-groups": {
-        "initial": [1],
-        "timer": [2],
-        "group0": [3],
-        "group1": [4],
-        "default": ["5"]
+        "initial": [0],
+        "timer": [1],
+        "group0": [2],
+        "group1": [3],
+        "default": ["0"]
     },
 
     // (O) Set of common options application defined.
