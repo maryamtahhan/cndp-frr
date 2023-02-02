@@ -49,25 +49,18 @@ docker exec -ti cndp-frr1 bash
 Navigate to the cnet-graph directory and run the application
 
 ```bash
-cd /cndp/builddir/examples/cnet-graph/; ./cnet-graph -c cnetfwd-graph.jsonc
+cd /cndp/builddir/examples/cnet-graph/;./cnet-graph -c cnetfwd-graph.jsonc
 ```
 
 Output should be something like:
+=======
 
-```bash
-[root@4101efc2cfd2 cnet-graph]# ./cnet-graph -c cnetfwd-graph.jsonc
-(xskdev_load_custom_xdp_prog: 861) INFO: Successfully loaded XDP program my_xdp_prog_kern.o with fd 6
-(xskdev_load_custom_xdp_prog: 861) INFO: Successfully loaded XDP program my_xdp_prog_kern.o with fd 11
+*** CNET-GRAPH Application, Mode: Drop, Burst Size: 128
 
-*** cnet-graph, PID: 48 lcore: 5
-Graph Name: 'cnet_1', Thread name graph:0
-  Patterns: 'ip4*' 'udp*' 'pkt_drop' 'chnl*' 'kernel_recv*'
-Type:TUN  - 'krecv0      ' fd 16  Multi-queue: 1 queue
-Type:TUN  - 'punt0       ' fd 19  Multi-queue: 1 queue
-  Channels: graph:0-chnl
-            'udp4:0:198.18.0.2:5678'(app_create_channel      : 169) ERR: chnl_bind() failed
+*** cnet-graph, PID: 57 lcore: 1
 
-** Version: CNDP 22.04.0, Command Line Interface
+** Version: CNDP 22.08.0, Command Line Interface
+CNDP-cli:/> route
 ```
 
 Check the routing information:
@@ -86,7 +79,7 @@ Leave this application running!
 
 ## FRR Routing settings
 
-## Running FRR in both cndp-frr containers
+### Running FRR in both cndp-frr containers
 
 Connect to the cndp-frr1 container
 
