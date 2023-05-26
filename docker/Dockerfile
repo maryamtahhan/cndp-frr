@@ -91,5 +91,6 @@ WORKDIR /
 RUN git clone https://github.com/CloudNativeDataPlane/cndp.git
 WORKDIR /cndp
 RUN make -j
+# COPY docker/cnetfwd-graph.jsonc /cndp/builddir/examples/cnet-graph ## Modify the docker/cnetfwd-graph.jsonc to include the appropriate configuration and interfaces
 
 WORKDIR /
