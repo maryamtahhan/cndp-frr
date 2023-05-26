@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2022 Red Hat, Inc.
 
-FROM quay.io/mtahhan/cndp-fedora-dev
+FROM fedora:37
 
 # Setup container to build CNDP applications
-RUN dnf -y upgrade && dnf -y install git autoconf automake libtool make \
+RUN dnf -y upgrade && dnf -y install git @development-tools libtool \
   readline-devel texinfo net-snmp-devel groff pkgconfig json-c-devel \
   pam-devel python3-pytest bison flex c-ares-devel python3-devel \
   python3-sphinx perl-core patch libcap-devel \
@@ -14,7 +14,7 @@ RUN dnf -y upgrade && dnf -y install git autoconf automake libtool make \
   @development-tools libbsd-devel libnl3-devel libnl3-cli \
   numactl-libs libbpf-devel libbpf meson ninja-build \
   gcc-c++ libpcap golang clang llvm m4 cmake \
-  pcre2 pcre2-devel dh-autoreconf python3
+  pcre2 pcre2-devel dh-autoreconf python3 bpftool
 
 # Build and install libyang from source
 WORKDIR /
@@ -77,23 +77,19 @@ COPY docker/frr-cfgs/frr2.cfg /
 COPY docker/frr-cfgs/daemons /etc/frr/daemons
 COPY docker/frr-cfgs/90-routing-sysctl.conf /etc/sysctl.d/90-routing-sysctl.conf
 
+RUN dnf -y install libpcap libpcap-devel
+
+# Install libxdp
 WORKDIR /
-COPY my-filter-udp-to-xdp /my-filter-udp-to-xdp
-WORKDIR /my-filter-udp-to-xdp
-RUN make -j
+RUN git clone https://github.com/xdp-project/xdp-tools.git
+WORKDIR /xdp-tools/
+RUN ./configure
+RUN make -j; PREFIX=/usr make -j install
+ENV PKG_CONFIG_PATH=/usr/lib/pkgconfig
 
 WORKDIR /
-RUN rm -rf cndp
 RUN git clone https://github.com/CloudNativeDataPlane/cndp.git
 WORKDIR /cndp
-RUN git checkout db29ec8134bcbfedecee8d4c9066aeb0a2e94934
-COPY docker/0001-Load-custom-bpf-program.patch /cndp
-RUN git apply 0001-Load-custom-bpf-program.patch
-RUN make clean
 RUN make -j
-COPY docker/cnetfwd-graph.jsonc /cndp/builddir/examples/cnet-graph
-WORKDIR /cndp/builddir/examples/cnet-graph
-
-RUN cp /my-filter-udp-to-xdp/my_xdp_prog_kern.o /cndp/builddir/examples/cnet-graph/
 
 WORKDIR /
