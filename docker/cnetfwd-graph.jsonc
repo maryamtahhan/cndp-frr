@@ -90,7 +90,6 @@
             "umem": "umem0",
             "region": 0,
             "description": "LAN 0 port",
-            "skb_mode": true,
             "custom_bpf_prog": "my_xdp_prog_kern.o"
         },
         "eth1:0": {
@@ -99,7 +98,6 @@
             "umem": "umem0",
             "region": 1,
             "description": "LAN 1 port",
-            "skb_mode": true,
             "custom_bpf_prog": "my_xdp_prog_kern.o"
         }
     },

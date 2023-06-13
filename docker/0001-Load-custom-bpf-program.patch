@@ -29,7 +29,7 @@ index 21ad55e..48b142f 100644
      struct acl_fwd_stats prev_acl_stats; /**< previous values for ACL stats */
 +    char bpf_prog_path[64];              /**< Custom BPF program path */
  };
- 
+
  struct app_options {
 diff --git a/examples/cndpfwd/parse-args.c b/examples/cndpfwd/parse-args.c
 index ad1d473..4a0f3b4 100644
@@ -40,7 +40,7 @@ index ad1d473..4a0f3b4 100644
              strlcpy(pcfg.ifname, lport->netdev, sizeof(pcfg.ifname));
              strlcpy(pcfg.name, lport->name, sizeof(pcfg.name));
 +            strlcpy(pcfg.bpf_prog_path, lport->bpf_prog_path, sizeof(pcfg.bpf_prog_path));
- 
+
              switch (f->pkt_api) {
              case XSKDEV_PKT_API:
 diff --git a/examples/cnet-graph/parse-args.c b/examples/cnet-graph/parse-args.c
@@ -52,7 +52,7 @@ index 8a953e3..6dac157 100644
              strlcpy(pcfg.ifname, lport->netdev, sizeof(pcfg.ifname));
              strlcpy(pcfg.name, lport->name, sizeof(pcfg.name));
 +            strlcpy(pcfg.bpf_prog_path, lport->bpf_prog_path, sizeof(pcfg.bpf_prog_path));
- 
+
              pd->lport = pktdev_port_setup(&pcfg);
              if (pd->lport < 0) {
 diff --git a/lib/core/xskdev/xskdev.c b/lib/core/xskdev/xskdev.c
@@ -62,7 +62,7 @@ index 6bb2ff5..73fc4bd 100644
 @@ -718,6 +718,81 @@ xskdev_buf_set_buf_mgmt_ops(lport_buf_mgmt_t *dst, lport_buf_mgmt_t *src)
          memcpy(dst, src, sizeof(lport_buf_mgmt_t));
  }
- 
+
 +static int
 +xskdev_load_custom_xdp_prog(const char *prog_path, int if_index, struct bpf_map **map, __u32 flags)
 +{
@@ -144,7 +144,7 @@ index 6bb2ff5..73fc4bd 100644
 @@ -750,6 +825,26 @@ xskdev_socket_create(struct lport_cfg *c)
              CNE_ERR_GOTO(err, "Failed to receive xsk map fd\n");
      }
- 
+
 +    if (c->flags & LPORT_CUST_BPF_PROG) {
 +        __u32 xdp_flags = 0;
 +
@@ -154,7 +154,7 @@ index 6bb2ff5..73fc4bd 100644
 +        xi->load_custom_bpf_prog = true;
 +
 +        xdp_flags &= ~XDP_FLAGS_MODES; /* Clear flags */
-+        xdp_flags |= XDP_FLAGS_SKB_MODE;
++        xdp_flags |= XDP_FLAGS_DRV_MODE;
 +
 +        // LOAD PROGRAM, get xi->xsk_map_fd
 +        ret = xskdev_load_custom_xdp_prog(c->bpf_prog_path, if_index, &xi->xsk_map, xdp_flags);
@@ -171,7 +171,7 @@ index 6bb2ff5..73fc4bd 100644
 @@ -841,13 +936,13 @@ xskdev_socket_create(struct lport_cfg *c)
      xi->skb_mode     = (c->flags & LPORT_SKB_MODE) ? true : false;
      xi->shared_umem  = (c->flags & LPORT_SHARED_UMEM) ? true : false;
- 
+
 -    xi->xdp_flags    = XDP_FLAGS_UPDATE_IF_NOEXIST;
 -    xi->xdp_flags    = ((xi->skb_mode) ? XDP_FLAGS_SKB_MODE : XDP_FLAGS_DRV_MODE) | xi->xdp_flags;
 -    cfg.xdp_flags    = xi->xdp_flags;
@@ -186,13 +186,13 @@ index 6bb2ff5..73fc4bd 100644
 +    cfg.rx_size    = c->rx_nb_desc;
 +    cfg.tx_size    = c->tx_nb_desc;
 +    cfg.libbpf_flags |= xi->unprivileged ? XSK_LIBBPF_FLAGS__INHIBIT_PROG_LOAD : 0;
- 
+
      if (xi->busy_polling) {
          xi->busy_budget  = (c->busy_budget) ? c->busy_budget : AF_XDP_DFLT_BUSY_BUDGET;
 @@ -880,7 +975,7 @@ xskdev_socket_create(struct lport_cfg *c)
      xi->txq.fds.fd     = xsk_socket__fd(xi->rxq.xsk);
      xi->txq.fds.events = POLLIN;
- 
+
 -    if (xi->unprivileged) {
 +    if (xi->unprivileged || xi->load_custom_bpf_prog) {
          ret = xsk_socket__update_xskmap(xi->rxq.xsk, xi->xsk_map_fd);
@@ -207,7 +207,7 @@ index c6a355f..f8284d8 100644
      uds_info_t *uds_info;          /**< UDS info struct */
      int xsk_map_fd;                /**< xsk map file descriptor from UDS */
 +    struct bpf_map *xsk_map;
- 
+
      /* byte flags to mirror the lport_cfg_t.flags bits */
      bool unprivileged; /**< Inhibit privileged ops (BPF program load & config of busy poll) */
 -    bool needs_wakeup; /**< Force the lport to use wakeup calls */
@@ -219,7 +219,7 @@ index c6a355f..f8284d8 100644
 +    bool skb_mode;             /**< Force lport to use SKB Copy mode */
 +    bool busy_polling;         /**< Enable the lport to use busy polling if available */
 +    bool shared_umem;          /**< Enable Shared UMEM support */
- 
+
      lport_buf_mgmt_t buf_mgmt; /**< Buffer management routines structure */
      xskdev_get_mbuf_addr_tx_t
 diff --git a/lib/include/cne_lport.h b/lib/include/cne_lport.h
@@ -232,14 +232,14 @@ index bad7a6e..c7b7388 100644
      lport_buf_mgmt_t buf_mgmt;     /**< Buffer management functions */
 +    char bpf_prog_path[64];
  } lport_cfg_t;
- 
+
  /**< lport_cfg.flags configuration bits */
 @@ -96,6 +97,7 @@ typedef struct lport_cfg {
  #define LPORT_SHARED_UMEM            (1 << 4) /**< Enable UMEM Shared mode if available */
  #define LPORT_USER_MANAGED_BUFFERS   (1 << 5) /**< Enable Buffer Manager outside of CNDP */
  #define LPORT_UMEM_UNALIGNED_BUFFERS (1 << 6) /**< Enable unaligned frame UMEM support */
 +#define LPORT_CUST_BPF_PROG          (1 << 7)
- 
+
  typedef struct lport_stats {
      uint64_t ipackets;           /**< Total number of successfully received packets. */
 diff --git a/lib/usr/app/jcfg/jcfg.h b/lib/usr/app/jcfg/jcfg.h
@@ -269,7 +269,7 @@ index 52f84ab..9ee34f0 100644
 +#define LPORT_GROUP_TAG     "lport-groups"
 +#define USER_TAG            "users"
 +#define CUSTOM_BPF_PROG_TAG "custom-bpf-prog"
- 
+
  /**
   * Macro to initialize a const char *tags[] type array for indexing with jcfg_tag_t.
 @@ -172,6 +173,7 @@ typedef struct jcfg_lport {
@@ -278,14 +278,14 @@ index 52f84ab..9ee34f0 100644
      uint16_t flags; /**< Flags to configure lport in lport_cfg_t.flags in cne_lport.h */
 +    char *bpf_prog_path;
  } jcfg_lport_t;
- 
+
  /** JCFG lport configuration names */
 @@ -188,6 +190,7 @@ typedef struct jcfg_lport {
  #define JCFG_LPORT_UNPRIVILEGED_NAME "unprivileged"
  #define JCFG_LPORT_FORCE_WAKEUP_NAME "force_wakeup"
  #define JCFG_LPORT_SKB_MODE_NAME     "skb_mode"
 +#define JCFG_CUST_BPF_PROG_NAME      "custom_bpf_prog"
- 
+
  /**
   * JCFG  lgroup for lcore allocations
 diff --git a/lib/usr/app/jcfg/jcfg_lport.c b/lib/usr/app/jcfg/jcfg_lport.c
@@ -302,7 +302,7 @@ index 1395bc6..8cc7c67 100644
 +            lport->flags |= LPORT_CUST_BPF_PROG;
 +        } else if (!strncmp(key, JCFG_LPORT_BUSY_TIMEOUT_NAME, keylen)) {
              int val;
- 
+
              val = json_object_get_int(obj);
 diff --git a/tools/cndp.schema b/tools/cndp.schema
 index ec4f00b..3de7242 100644
@@ -334,6 +334,6 @@ index ec4f00b..3de7242 100644
                  },
                  "patternProperties": {
                      "^desc(ription){0,1}$": {
--- 
+--
 2.39.1
 

@@ -28,33 +28,33 @@ make
 
 ## Setup docker networks and run docker containers
 
-```bash
-# ./scripts/setupdemo.sh
+```cmd
+$ ./scripts/setup-demo.sh
 ```
 
 ## check that clients can't ping one another
 
-```bash
-docker exec client2 ping 172.19.0.2
+```cmd
+$ docker exec client2 ping 172.19.0.2
 ```
 
 ## start cnet-graph application on cndp-frr1
 
 Connect to the docker container
 
-```bash
-docker exec -ti cndp-frr1 bash
+```cmd
+$ docker exec -ti cndp-frr1 bash
 ```
 
 Navigate to the cnet-graph directory and run the application
 
-```bash
-cd /cndp/builddir/examples/cnet-graph/;./cnet-graph -c cnetfwd-graph.jsonc
+```cmd
+$ cd /cndp/builddir/examples/cnet-graph/;./cnet-graph -c cnetfwd-graph.jsonc
 ```
 
 Output should be something like:
-=======
 
+```bash
 *** CNET-GRAPH Application, Mode: Drop, Burst Size: 128
 
 *** cnet-graph, PID: 57 lcore: 1
@@ -83,14 +83,14 @@ Leave this application running!
 
 Connect to the cndp-frr1 container
 
-```bash
-docker exec -ti cndp-frr1 bash
+```cmd
+$ docker exec -ti cndp-frr1 bash
 ```
 
 Start FRR
 
-``` bash
-source startup.sh
+```cmd
+$ source startup.sh
 ```
 
 Repeat the steps above on cndp-frr2
@@ -99,8 +99,8 @@ Repeat the steps above on cndp-frr2
 
 Check configuration with vtysh.
 
-```bash
-# vtysh
+```cmd
+$ vtysh
 
 Hello, this is FRRouting (version 7.5_git).
 Copyright 1996-2005 Kunihiro Ishiguro, et al.
@@ -134,19 +134,18 @@ end
 
 Setup frr2 in the same way
 
-```bash
-# vtysh
+```cmd
+$ vtysh
 
 Hello, this is FRRouting (version 7.5_git).
 Copyright 1996-2005 Kunihiro Ishiguro, et al.
 
 frr1# show run
-
 ```
 
 With the settings up to this point, if you enter frr1 and check the ip route, 172.21.0.0/16 is added in OSPF.
 
-```bash
+```cmd
 frr1# show ip route
 Codes: K - kernel route, C - connected, S - static, R - RIP,
        O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
@@ -165,7 +164,7 @@ O>* 172.21.0.0/16 [110/20] via 172.20.0.2, eth1, weight 1, 00:00:36
 The neighbour is also properly recognised.
 ```
 
-```bash
+```cmd
 frr1# show ip ospf neighbor
 
 Neighbor ID     Pri State           Up Time         Dead Time Address         Interface                        RXmtL RqstL DBsmL
@@ -187,16 +186,16 @@ Route Table for CNET on lcore 5
 
 Check connectivity and run iperf between the clients from the host side
 
-```bash
-docker exec client2 ping 172.19.0.2
+```cmd
+$ docker exec client2 ping 172.19.0.2
 ```
 
-```bash
-docker exec client1 iperf -s -u
+```cmd
+$ docker exec client1 iperf -s -u
 ```
 
-```bash
-docker exec client2 iperf -c 172.19.0.2 -u
+```cmd
+$ docker exec client2 iperf -c 172.19.0.2 -u
 ------------------------------------------------------------
 Client connecting to 172.19.0.2, UDP port 5001
 Sending 1470 byte datagrams, IPG target: 11215.21 us (kalman adjust)
