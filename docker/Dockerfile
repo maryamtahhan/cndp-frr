@@ -107,6 +107,8 @@ RUN git apply 0001-Load-custom-bpf-program.patch
 RUN make clean
 RUN make -j
 COPY docker/cnetfwd-graph.jsonc /cndp/builddir/examples/cnet-graph
+COPY docker/cnetfwd-graph-frr1.jsonc /cndp/builddir/examples/cnet-graph
+COPY docker/cnetfwd-graph-frr2.jsonc /cndp/builddir/examples/cnet-graph
 WORKDIR /cndp/builddir/examples/cnet-graph
 # Copy filtering program to cnet-graph
 RUN cp /my-filter-udp-to-xdp/my_xdp_prog_kern.o /cndp/builddir/examples/cnet-graph/
