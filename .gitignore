@@ -1,0 +1,11 @@
+# Remove a few common types of files i.e. backup files
+*~
+*#
+.#*
+*.dot
+
+# Remove vscode and meson build directories
+.vscode/
+
+*.ll
+*.o

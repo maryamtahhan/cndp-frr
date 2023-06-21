@@ -195,7 +195,7 @@ $ docker exec client1 iperf -s -u
 ```
 
 ```cmd
-$ docker exec client2 iperf -c 172.19.0.2 -u
+$ docker exec client2 iperf -c 172.20.0.2 -u -l 512
 ------------------------------------------------------------
 Client connecting to 172.19.0.2, UDP port 5001
 Sending 1470 byte datagrams, IPG target: 11215.21 us (kalman adjust)

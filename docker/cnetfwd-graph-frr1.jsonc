@@ -99,7 +99,7 @@
             "umem": "umem0",
             "region": 1,
             "description": "LAN 1 port",
-            "custom_bpf_prog": "my_xdp_prog_kern.o"
+            "custom_bpf_prog": "my_xdp_prog_kern_2.o"
         }
     },
 

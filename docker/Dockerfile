@@ -112,5 +112,7 @@ COPY docker/cnetfwd-graph-frr2.jsonc /cndp/builddir/examples/cnet-graph
 WORKDIR /cndp/builddir/examples/cnet-graph
 # Copy filtering program to cnet-graph
 RUN cp /my-filter-udp-to-xdp/my_xdp_prog_kern.o /cndp/builddir/examples/cnet-graph/
+RUN cp /my-filter-udp-to-xdp/my_xdp_prog_kern_2.o /cndp/builddir/examples/cnet-graph/
+
 
 WORKDIR /
