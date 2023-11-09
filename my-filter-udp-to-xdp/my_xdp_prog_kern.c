@@ -90,8 +90,8 @@ int  xdp_filter_udp(struct xdp_md *ctx)
 
             /* A set entry here means that the corresponding queue_id
             * has an active AF_XDP socket bound to it. */
-            if (bpf_map_lookup_elem(&xsks_map, &index))
-                return bpf_redirect_map(&xsks_map, index, 0);
+            if (bpf_map_lookup_elem(&xsk_map, &index))
+                return bpf_redirect_map(&xsk_map, index, 0);
             }
     }
 
