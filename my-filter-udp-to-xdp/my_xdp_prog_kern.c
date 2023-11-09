@@ -15,7 +15,8 @@ struct {
     __type(key, __u32);
     __type(value, __u32);
     __uint(max_entries, 64);
-} xsks_map SEC(".maps");
+    __uint(pinning, LIBBPF_PIN_BY_NAME);
+} xsk_map SEC(".maps");
 
 /* Header cursor to keep track of current parsing position */
 struct hdr_cursor {
